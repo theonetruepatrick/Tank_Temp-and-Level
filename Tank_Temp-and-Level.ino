@@ -1,15 +1,29 @@
+/*
+ * Board: ESP8266
+ *    Temp Meter: DS18B20
+ *    
+ *    
+ *Config:
+ *   GPIO2 => D4 => Data (DS18B20
+ * 
+ * 
+ * 
+ * 
+ */
+
+//Includes for Temperature Reading
 #include <OneWire.h>
 #include <DallasTemperature.h>
  
-// Data wire is plugged into pin 2 on the Arduino
-#define ONE_WIRE_BUS 2
+
+#define TempSensor_01 2  //Temp Sensor DATA 
+OneWire oneWire(TempSensor_01);
  
-// Setup a oneWire instance to communicate with any OneWire devices 
-// (not just Maxim/Dallas temperature ICs)
-OneWire oneWire(ONE_WIRE_BUS);
- 
-// Pass our oneWire reference to Dallas Temperature.
-DallasTemperature sensors(&oneWire);
+
+DallasTemperature sensors(&oneWire);  // Pass our oneWire reference to Dallas Temperature.
+
+//Declare Variables
+float TempF = 0;  //Temperature in F
  
 void setup(void)
 {
@@ -26,13 +40,14 @@ void loop(void)
 {
   // call sensors.requestTemperatures() to issue a global temperature
   // request to all devices on the bus
-  Serial.print(" Requesting temperatures...");
+  
   sensors.requestTemperatures(); // Send the command to get temperatures
-  Serial.println("DONE");
-
+  
   Serial.print("Temperature is: ");
-  Serial.print(sensors.getTempCByIndex(0)); // Why "byIndex"? 
-    // You can have more than one IC on the same bus. 
-    // 0 refers to the first IC on the wire
+  TempF=(round(sensors.getTempFByIndex(0)*10))/10;
+  
+  
+  Serial.print(TempF,1); 
+  Serial.println("°F");
     delay(1000);
 }
