@@ -63,18 +63,22 @@ void loop(void)
 
 
 void serialMonitorDisplay(){
-    Serial.print("** ");
-    Serial.println(millis());
+    Serial.println();
+    Serial.println();
+    Serial.println("-----------");
+    Serial.print("\tTemperature: \t");
+      Serial.print(TempF,1); 
+      Serial.println("°F");
+      Serial.println();
+    
     Serial.print("\t Uptime: \t");
-      Serial.println(tsMillisHuman(millis()));
+    Serial.println(tsMillisHuman(millis()));
     Serial.print("\t Now: \t\t");
-      Serial.println (timeStampNTP(99));
+    Serial.println (timeStampNTP(99));
     
 
    PrintBoardStats();
-
-    Serial.print("Temperature: ");
-    Serial.print(TempF,1); 
-    Serial.println("°F");
+  
+    
     
 }
