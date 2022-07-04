@@ -11,43 +11,70 @@
  * 
  */
 
-//Includes for Temperature Reading
-#include <OneWire.h>
-#include <DallasTemperature.h>
- 
+//Core Coding
+  #include "core_iot.h"
 
-#define TempSensor_01 2  //Temp Sensor DATA 
-OneWire oneWire(TempSensor_01);
- 
 
-DallasTemperature sensors(&oneWire);  // Pass our oneWire reference to Dallas Temperature.
+
+//Temperature Reading Config
+  #include <OneWire.h>
+  #include <DallasTemperature.h>
+  #define TempSensor_01 2  //Temp Sensor DATA 
+  OneWire oneWire(TempSensor_01);
+  DallasTemperature sensors(&oneWire); 
 
 //Declare Variables
-float TempF = 0;  //Temperature in F
+  //extern float TempF = 0;  //Temperature
  
 void setup(void)
 {
   // start serial port
   Serial.begin(115200);
-  Serial.println("Dallas Temperature IC Control Library Demo");
+  Serial.println("booting");
 
-  // Start up the library
+    RunOnce_WLANSetup();                //connects board to network
+    RunOnce_HttpRequest();              //configures the handling of HTTP requests
+    RunOnce_StartNetworkTimeClient();   //start the NTP time service
+    sendSms("Sensor has rebooted");
+
+
+
+  
+  // Start up the Temperature Sensor library
   sensors.begin();
 }
  
  
 void loop(void)
 {
-  // call sensors.requestTemperatures() to issue a global temperature
-  // request to all devices on the bus
-  
+    //Required to capture and direct HTTP requests
+      httpRequestHandling();
+      
   sensors.requestTemperatures(); // Send the command to get temperatures
-  
-  Serial.print("Temperature is: ");
   TempF=(round(sensors.getTempFByIndex(0)*10))/10;
   
+  serialMonitorDisplay();
   
-  Serial.print(TempF,1); 
-  Serial.println("°F");
-    delay(1000);
+  
+  
+    
+    delay(5000);
+}
+
+
+void serialMonitorDisplay(){
+    Serial.print("** ");
+    Serial.println(millis());
+    Serial.print("\t Uptime: \t");
+      Serial.println(tsMillisHuman(millis()));
+    Serial.print("\t Now: \t\t");
+      Serial.println (timeStampNTP(99));
+    
+
+   PrintBoardStats();
+
+    Serial.print("Temperature: ");
+    Serial.print(TempF,1); 
+    Serial.println("°F");
+    
 }
