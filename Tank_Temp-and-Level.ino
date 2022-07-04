@@ -6,6 +6,8 @@
  *Config:
  *   GPIO2 => D4 => Data (DS18B20
  * 
+ * level sensing 2 branch
+ * 
  * 
  * 
  * 
