@@ -105,6 +105,15 @@ void loop(void)
       
   sensors.requestTemperatures(); // Send the command to get temperatures
   TempF=(round(sensors.getTempFByIndex(0)*10))/10;
+
+// Clear the trigPin by setting it LOW:
+  digitalWrite(trigPin, LOW);
+  
+  if (millis()-readingTimestamp >= readingDelayMS){  // will execute only after pre-defined time period
+    getReading();
+  }
+
+
   
   serialMonitorDisplay();
   
@@ -116,6 +125,16 @@ void loop(void)
 
 
 void serialMonitorDisplay(){
+    if (readingCount < numReadings) {
+          lowSampleFlag = "**";     //visual flag to indicate that current average is not a full set of data yet
+        } else {
+          lowSampleFlag = "";
+        }
+    if (tankLevel<=tankAlarm){
+        Serial.println ("  !!!ALERT!!!    Low Tank Level    !!!ALERT!!!");
+      }
+    
+    
     Serial.println();
     Serial.println();
     Serial.println("-----------");
@@ -123,6 +142,42 @@ void serialMonitorDisplay(){
       Serial.print(TempF,1); 
       Serial.println("°F");
       Serial.println();
+  
+Serial.print ("\t Pulse duration (round trip):\t");
+      Serial.print (duration,0);
+      Serial.println (" µs");
+      
+      Serial.print("\t Distance to liquid surface:\t");
+        Serial.print(distance,1);
+        Serial.println (" in");
+     
+      Serial.print ("\t Tank level - Current:\t\t");
+        Serial.print(tankLevel,1);
+        Serial.println("%");
+
+      Serial.print ("\t Tank level - Running Avg:\t");
+        Serial.print(readingAverage,1);
+        Serial.print("%");
+        Serial.print(lowSampleFlag);     
+        Serial.println();
+        
+      Serial.print ("\t Tank level change trend:\t");
+        Serial.print(ROCTrend,1);
+        Serial.print("%");
+        Serial.print(lowSampleFlag);
+        Serial.println();
+
+       Serial.print ("\t Approx time to empty:\t\t");
+        if (hrsToEmpty <= 0){
+          Serial.print("n/a");
+        } else {
+          Serial.print(hrsToEmpty,0);
+          Serial.print(" hrs");
+        }
+        
+        Serial.print(lowSampleFlag);
+        Serial.println();
+      
     
     Serial.print("\t Uptime: \t");
     Serial.println(tsMillisHuman(millis()));
@@ -131,7 +186,90 @@ void serialMonitorDisplay(){
     
 
    PrintBoardStats();
-  
+ }
+
+ void getReading(){
+   // Trigger the sensor by setting the trigPin high for 10 microseconds:
+      digitalWrite(trigPin, HIGH);
+      delayMicroseconds(10);
+      digitalWrite(trigPin, LOW);  //
+   
+      duration = pulseIn(echoPin, HIGH, durationTimeout); // Read the echoPin for round-trip pulse time.
+
+      if (duration > 10){  //sometimes echo fails; returns zero
+        readingTimestamp=millis();    //timestamp this loop
+        readingDelayAdjustment= readingTimestamp % readingDelayMS;
+        readingTimestamp -= readingDelayAdjustment;
+     
+       // Calculate the distance 
+          distance = duration*speedOfSound;     //converts the duration to INCHES
+          distance /= 2;                //halves distance for round trip
+          distance += distanceOffset; //adds compensation to measurement
+       
+      // converts distance to % of tank    
+          tankLevel = round(100*(1-((distance-tankFull)/(tankEmpty-tankFull))));
+          tankLevel = max(tankLevel, tankLevelMin);   //doesn't allow reading to go below 0
+          tankLevel = min(tankLevel, tankLevelMax);   //doesn't allow reading to go above 100
+      
+      // Call the smoothing formula
+          dataAnalysis();
+          
+//      // display output
+//          serialMonitorOutput();
+       
+     } else {   
+        readingTimestamp=millis()-readingDelayMS;     //if distance returns a "0", re-run reading
+        Serial.print (readingTimestamp);
+        Serial.println(" : Error: zero value returned, redoing reading....");
+     }
+      
+}
+
+void dataAnalysis(){
+    readingDelta=readingAverage;  //set initial value for calculating the rate of change
     
+    readingSumTotal -= readings[readIndex]; // subtract the last reading from the total
+    readings[readIndex] = tankLevel;        // assigns current level to array
+    readingSumTotal += readings[readIndex]; // add the currentreading to the total
     
+    readIndex = readIndex + 1;              // advance to the next position in the array:
+    if (readIndex >= numReadings) {         // if at the end of the array, wrap around to the beginning
+      readIndex = 0;
+    }
+    
+    if (readingCount < numReadings){        //accomodates initial lack of data until array is fully populated 
+      readingCount++;
+      readingAverage = readingSumTotal / readingCount;
+                                          
+    } else {
+      readingAverage = readingSumTotal / numReadings;
+    }
+
+    if (readingCount < 2){
+      readingDelta=0; //eliminates skewed analysis with first reading
+    } else {
+      readingDelta-=readingAverage; //subtracts updated average from previous average
+    }
+
+    
+  //this will work essentially like the dataAnalysis but tracks the trend of the average change over time
+    ROCSumTotal -= readingROC[ROCIndex];  // subtract the last reading from the total
+    readingROC[ROCIndex] = readingDelta;  // assigns current level to array
+    ROCSumTotal += readingROC[ROCIndex];  // add the currentreading to the total
+    ROCIndex = ROCIndex + 1;              // advance to the next position in the array:
+    if (ROCIndex >= numReadings) {        // if at the end of the array, wrap around to the beginning
+      ROCIndex = 0;
+    }   
+   
+   if (readingCount < numReadings){       //accomodates initial lack of data until array is fully populated 
+      ROCTrend = ROCSumTotal / readingCount;
+    } else {
+      ROCTrend = ROCSumTotal / numReadings;
+    }
+
+
+  //this will estimate the number of hours until tank is empty
+      hrsToEmpty = ((tankLevel/ROCTrend)/60)*(-1);  
+    
+
 }
